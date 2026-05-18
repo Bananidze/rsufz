@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Test-Path *)",
+      "PowerShell(Get-Command *)",
+      "PowerShell(go *)",
+      "PowerShell($ErrorActionPreference = 'Stop'; & ./tasks.ps1 build; Get-ChildItem .\\\\bin | Format-Table Name, Length, LastWriteTime -AutoSize)",
+      "PowerShell(& .\\\\bin\\\\apigateway.exe; & .\\\\bin\\\\scheduler.exe; & .\\\\bin\\\\worker.exe; & ./tasks.ps1 test)",
+      "Bash(git init *)",
+      "Bash(git branch *)",
+      "Bash(git add *)"
+    ]
+  }
+}

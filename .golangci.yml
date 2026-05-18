@@ -1,0 +1,47 @@
+# Конфиг линтера. Намеренно умеренно-строгий — джуну важна обратная связь, но не «огненный шквал».
+# Полный список линтеров: https://golangci-lint.run/usage/linters/
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  disable-all: true
+  enable:
+    - errcheck         # незабытые проверки err
+    - govet            # стандартный анализатор Go
+    - staticcheck      # упомянут в ПЗ §3.1
+    - ineffassign      # бесполезные присваивания
+    - unused           # неиспользуемый код
+    - gosimple         # упрощения
+    - revive           # стиль (мягче, чем golint)
+    - gocritic         # дополнительные проверки
+    - bodyclose        # незакрытые response body
+    - errorlint        # правильное оборачивание ошибок
+    - gosec            # security
+    - misspell         # опечатки в комментариях
+    - prealloc         # подсказка про предварительное выделение слайсов
+    - unconvert        # лишние type conversions
+
+linters-settings:
+  revive:
+    rules:
+      - name: var-naming
+      - name: package-comments
+      - name: exported
+        arguments: ["disableStutteringCheck"]
+  gocritic:
+    enabled-tags:
+      - performance
+      - style
+      - diagnostic
+    disabled-checks:
+      - hugeParam     # слишком шумный
+      - rangeValCopy
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters: [errcheck, gosec, prealloc]
+  max-issues-per-linter: 0
+  max-same-issues: 0

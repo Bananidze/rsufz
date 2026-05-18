@@ -1,0 +1,18 @@
+# Force LF for source files even on Windows checkouts
+*.go        text eol=lf
+*.sql       text eol=lf
+*.proto     text eol=lf
+*.yaml      text eol=lf
+*.yml       text eol=lf
+*.md        text eol=lf
+*.sh        text eol=lf
+Makefile    text eol=lf
+Dockerfile  text eol=lf
+
+# PowerShell — keep native CRLF
+*.ps1       text eol=crlf
+
+# Binaries
+*.png       binary
+*.jpg       binary
+*.pdf       binary
