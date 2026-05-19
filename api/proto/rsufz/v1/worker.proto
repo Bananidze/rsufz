@@ -1,0 +1,72 @@
+syntax = "proto3";
+
+package rsufz.v1;
+
+option go_package = "github.com/Bananidze/rsufz/gen/go/rsufz/v1;rsufzv1";
+
+// WorkerService — внутренний протокол между планировщиком и воркерами.
+// Воркеры инициируют соединение к планировщику.
+service WorkerService {
+  // RegisterWorker сообщает планировщику о новом воркере и его возможностях.
+  rpc RegisterWorker(RegisterWorkerRequest) returns (RegisterWorkerResponse);
+
+  // Heartbeat — периодический «я живой» сигнал от воркера (МТ.4.1–4.3).
+  // Если планировщик не получает heartbeat в течение timeout — считает воркер упавшим (МТ.4.4).
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+
+  // ReportResult вызывается воркером после завершения задачи (успех или ошибка).
+  rpc ReportResult(ReportResultRequest) returns (ReportResultResponse);
+
+  // UnregisterWorker — graceful shutdown: воркер сообщает, что уходит (МТ.9.2).
+  rpc UnregisterWorker(UnregisterWorkerRequest) returns (UnregisterWorkerResponse);
+}
+
+// ---- RegisterWorker ----
+
+message RegisterWorkerRequest {
+  string worker_id       = 1; // уникальный ID воркера, генерируется при старте (UUID)
+  int32  max_concurrency = 2; // МТ.9.3: максимальное число одновременных задач
+  // Типы задач, которые умеет выполнять этот воркер ("send_email", "generate_report", ...).
+  repeated string supported_types = 3;
+}
+
+message RegisterWorkerResponse {
+  // heartbeat_interval_ms — с какой частотой планировщик ожидает heartbeat'ы.
+  int64 heartbeat_interval_ms = 1;
+}
+
+// ---- Heartbeat ----
+
+message HeartbeatRequest {
+  string worker_id        = 1;
+  int32  active_tasks     = 2; // сколько задач выполняется прямо сейчас
+  int32  available_slots  = 3; // max_concurrency - active_tasks
+}
+
+message HeartbeatResponse {
+  // ok = true, пока планировщик считает воркер живым.
+  bool ok = 1;
+}
+
+// ---- ReportResult ----
+
+message ReportResultRequest {
+  string worker_id = 1;
+  string task_id   = 2;
+  bool   success   = 3;
+  bytes  result    = 4; // JSON-результат при success=true
+  string error_msg = 5; // описание ошибки при success=false
+}
+
+message ReportResultResponse {
+  // retry — планировщик решил поставить задачу на повтор (success=false + лимит не исчерпан).
+  bool retry = 1;
+}
+
+// ---- UnregisterWorker ----
+
+message UnregisterWorkerRequest {
+  string worker_id = 1;
+}
+
+message UnregisterWorkerResponse {}

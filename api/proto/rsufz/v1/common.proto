@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package rsufz.v1;
+
+option go_package = "github.com/Bananidze/rsufz/gen/go/rsufz/v1;rsufzv1";
+
+import "google/protobuf/timestamp.proto";
+
+// TaskStatus — статус жизненного цикла задачи.
+enum TaskStatus {
+  TASK_STATUS_UNSPECIFIED = 0;
+  TASK_STATUS_PENDING     = 1;
+  TASK_STATUS_RUNNING     = 2;
+  TASK_STATUS_COMPLETED   = 3;
+  TASK_STATUS_FAILED      = 4;
+  TASK_STATUS_CANCELLED   = 5;
+}
+
+// Task — полное представление задачи, возвращаемое клиенту.
+message Task {
+  string id             = 1;
+  string type           = 2;
+  bytes  payload        = 3;
+  uint32 priority       = 4; // 0..10 (МТ.1.5–1.7)
+  TaskStatus status     = 5;
+
+  // Зависимости: эта задача запустится только после завершения всех перечисленных (МТ.2.2–2.3).
+  repeated string dependency_ids = 6;
+
+  // zero-значение timestamp означает «запустить немедленно».
+  google.protobuf.Timestamp scheduled_at = 7;
+  google.protobuf.Timestamp created_at   = 8;
+  google.protobuf.Timestamp updated_at   = 9;
+
+  int32  attempt_count    = 10; // МТ.3.1
+  int32  retry_limit      = 11; // МТ.3.2
+  string last_error       = 12;
+  bytes  result           = 13;
+  string worker_id        = 14;
+  string idempotency_key  = 15; // МТ.6.3: повторный запрос с тем же ключом → тот же task_id
+}

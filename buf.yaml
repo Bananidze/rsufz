@@ -1,0 +1,16 @@
+version: v2
+
+modules:
+  - path: api/proto
+
+lint:
+  use:
+    - STANDARD
+  except:
+    - PACKAGE_VERSION_SUFFIX   # пакет rsufz.v1 уже содержит суффикс версии
+  ignore:
+    - rsufz/v1/common.proto    # Task message — намеренно большой, это нормально
+
+breaking:
+  use:
+    - FILE

@@ -31,8 +31,10 @@ lint: ## golangci-lint run
 tidy: ## go mod tidy
 	$(GO) mod tidy
 
-proto: ## Сгенерировать gRPC stubs (понадобится с Этапа 3)
-	@echo "TODO: подключим buf или protoc на Этапе 3"
+proto: ## Сгенерировать gRPC stubs из api/proto/ → gen/go/
+	go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+	buf generate
 
 up: ## Поднять локальный стенд (Postgres + Redis)
 	$(COMPOSE) up -d

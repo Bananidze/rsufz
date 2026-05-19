@@ -1,0 +1,96 @@
+syntax = "proto3";
+
+package rsufz.v1;
+
+option go_package = "github.com/Bananidze/rsufz/gen/go/rsufz/v1;rsufzv1";
+
+import "rsufz/v1/common.proto";
+import "google/protobuf/timestamp.proto";
+
+// TaskService — публичный API для постановки задач и мониторинга.
+// Клиент (бизнес-код, веб-интерфейс) общается только с этим сервисом.
+service TaskService {
+  // EnqueueTask регистрирует новую фоновую задачу (МТ.1.1–1.7).
+  rpc EnqueueTask(EnqueueTaskRequest) returns (EnqueueTaskResponse);
+
+  // GetTask возвращает текущее состояние задачи по ID (МТ.7.1).
+  rpc GetTask(GetTaskRequest) returns (Task);
+
+  // CancelTask переводит задачу в статус cancelled (если она ещё pending).
+  rpc CancelTask(CancelTaskRequest) returns (CancelTaskResponse);
+
+  // RepublishTask сбрасывает failed-задачу обратно в pending и обнуляет счётчик попыток (МТ.7.3).
+  rpc RepublishTask(RepublishTaskRequest) returns (Task);
+
+  // ListTasks возвращает список задач с фильтрацией по статусу и типу.
+  rpc ListTasks(ListTasksRequest) returns (ListTasksResponse);
+
+  // StreamTaskUpdates — server-side streaming: клиент подписывается на обновления конкретной задачи.
+  rpc StreamTaskUpdates(StreamTaskUpdatesRequest) returns (stream Task);
+}
+
+// ---- EnqueueTask ----
+
+message EnqueueTaskRequest {
+  string type    = 1; // обязательное поле (МТ.1.2)
+  bytes  payload = 2; // JSON-параметры (МТ.1.4)
+  uint32 priority = 3; // 0..10 (МТ.1.5–1.7)
+
+  // dependency_ids — задачи, которые должны завершиться до запуска этой (МТ.2.2–2.3).
+  repeated string dependency_ids = 4;
+
+  // scheduled_at — если задано, задача не запустится раньше этого времени.
+  google.protobuf.Timestamp scheduled_at = 5;
+
+  int32 retry_limit = 6; // максимальное число автоматических повторов (МТ.3.2)
+
+  // idempotency_key — клиент задаёт для дедупликации повторных запросов (МТ.6.3).
+  string idempotency_key = 7;
+}
+
+message EnqueueTaskResponse {
+  string task_id = 1;
+}
+
+// ---- GetTask ----
+
+message GetTaskRequest {
+  string task_id = 1;
+}
+
+// ---- CancelTask ----
+
+message CancelTaskRequest {
+  string task_id = 1;
+}
+
+message CancelTaskResponse {
+  Task task = 1;
+}
+
+// ---- RepublishTask ----
+
+message RepublishTaskRequest {
+  string task_id = 1;
+}
+
+// ---- ListTasks ----
+
+message ListTasksRequest {
+  // Фильтр по статусу. UNSPECIFIED = все статусы.
+  TaskStatus status_filter = 1;
+  string     type_filter   = 2; // пустая строка = все типы
+  int32      page          = 3; // нумерация с 0
+  int32      page_size     = 4; // 0 → дефолт (50)
+}
+
+message ListTasksResponse {
+  repeated Task tasks = 1;
+  int32         total = 2;
+}
+
+// ---- StreamTaskUpdates ----
+
+message StreamTaskUpdatesRequest {
+  string task_id = 1;
+}

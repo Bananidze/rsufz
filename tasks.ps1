@@ -73,7 +73,13 @@ PowerShell helper (Makefile analog).
     'lint' { Invoke-Step 'golangci-lint' { & golangci-lint run } }
     'tidy' { Invoke-Step 'go mod tidy'   { & go mod tidy } }
 
-    'proto'   { Write-Host 'TODO: wire buf or protoc at stage 3' -ForegroundColor Yellow }
+    'proto' {
+        Invoke-Step 'install go proto plugins' {
+            & go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+            & go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+        }
+        Invoke-Step 'buf generate' { & buf generate }
+    }
     'migrate' { Write-Host 'TODO: wire goose at stage 4' -ForegroundColor Yellow }
 
     'up'   { Invoke-Step 'compose up'   { Invoke-Expression "$compose up -d" } }
