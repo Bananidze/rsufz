@@ -26,7 +26,10 @@ var (
 	// ErrDuplicateTask — задача с таким ключом идемпотентности уже существует.
 	ErrDuplicateTask = errors.New("duplicate idempotency key")
 
-	// ErrInvalidPriority — приоритет вне допустимого диапазона 0..10.
-	// Покрывает тест МТ.1.7.
+	// ErrInvalidPriority — приоритет вне допустимого диапазона 0..10 (МТ.1.7).
 	ErrInvalidPriority = errors.New("priority must be between 0 and 10")
+
+	// ErrInvalidArgument — общая ошибка валидации входных данных.
+	// Маппится в gRPC codes.InvalidArgument (МТ.1.2–1.4).
+	ErrInvalidArgument = errors.New("invalid argument")
 )

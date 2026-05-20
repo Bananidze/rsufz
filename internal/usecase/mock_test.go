@@ -33,10 +33,19 @@ func (m *mockRepo) UpdateTask(ctx context.Context, id domain.TaskID, fn func(*do
 	return m.Called(ctx, id, fn).Error(0)
 }
 
-func (m *mockRepo) LockNextPending(ctx context.Context, limit int) ([]*domain.Task, error) {
+func (m *mockRepo) Heartbeat(ctx context.Context, id domain.TaskID, workerID string) error {
+	return m.Called(ctx, id, workerID).Error(0)
+}
+
+func (m *mockRepo) PickAndMarkRunning(ctx context.Context, limit int) ([]*domain.Task, error) {
 	args := m.Called(ctx, limit)
 	tasks, _ := args.Get(0).([]*domain.Task)
 	return tasks, args.Error(1)
+}
+
+func (m *mockRepo) ResetStuckRunning(ctx context.Context, timeout time.Duration) (int64, error) {
+	args := m.Called(ctx, timeout)
+	return args.Get(0).(int64), args.Error(1)
 }
 
 func (m *mockRepo) List(ctx context.Context, f usecase.ListFilter) ([]*domain.Task, int, error) {

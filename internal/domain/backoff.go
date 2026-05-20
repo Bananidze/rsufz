@@ -9,6 +9,14 @@ type Backoff struct {
 	Max  time.Duration
 }
 
+// DefaultBackoff возвращает Backoff со стандартными параметрами из ПЗ §МТ.3.3.
+func DefaultBackoff() Backoff {
+	return Backoff{
+		Base: time.Second,
+		Max:  5 * time.Minute,
+	}
+}
+
 // Delay возвращает задержку для заданного номера попытки.
 // attempt < 0 приводится к 0; очень большие значения не вызывают переполнения.
 func (b Backoff) Delay(attempt int) time.Duration {
