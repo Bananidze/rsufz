@@ -200,8 +200,11 @@ func TestRepo_LockNextPending_DAG(t *testing.T) {
 		assert.NotEqual(t, child.ID, tsk.ID, "child не должен выбираться пока dep не completed")
 	}
 
-	// завершаем dep
+	// завершаем dep: pending → running → completed (state machine не пропускает pending → completed)
 	require.NoError(t, repo.UpdateTask(ctx, dep.ID, func(tsk *domain.Task) error {
+		if err := tsk.TransitionTo(domain.StatusRunning); err != nil {
+			return err
+		}
 		return tsk.TransitionTo(domain.StatusCompleted)
 	}))
 

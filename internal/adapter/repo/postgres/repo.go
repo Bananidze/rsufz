@@ -313,21 +313,29 @@ func (r *Repo) LockNextPending(ctx context.Context, limit int) ([]*domain.Task, 
 	}
 	defer rows.Close()
 
+	// Сначала собираем все задачи — rows должен быть закрыт до loadDeps,
+	// иначе pgx возвращает "conn busy" (нельзя читать с открытым курсором).
 	var tasks []*domain.Task
 	for rows.Next() {
 		t, err := scanTask(rows)
 		if err != nil {
+			rows.Close()
 			return nil, fmt.Errorf("postgres: lock-next: scan: %w", err)
 		}
+		tasks = append(tasks, t)
+	}
+	rows.Close()
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("postgres: lock-next: rows: %w", err)
+	}
+
+	// Затем загружаем зависимости (соединение свободно).
+	for _, t := range tasks {
 		uid, _ := toUUID(t.ID)
 		t.Dependencies, err = loadDeps(ctx, tx, uid)
 		if err != nil {
 			return nil, fmt.Errorf("postgres: lock-next: deps: %w", err)
 		}
-		tasks = append(tasks, t)
-	}
-	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("postgres: lock-next: rows: %w", err)
 	}
 
 	return tasks, tx.Commit(ctx)
@@ -433,17 +441,20 @@ func (r *Repo) PickAndMarkRunning(ctx context.Context, limit int) ([]*domain.Tas
 			rows.Close()
 			return nil, fmt.Errorf("postgres: pick-and-mark: scan: %w", err)
 		}
-		uid, _ := toUUID(t.ID)
-		t.Dependencies, err = loadDeps(ctx, tx, uid)
-		if err != nil {
-			rows.Close()
-			return nil, fmt.Errorf("postgres: pick-and-mark: deps: %w", err)
-		}
 		tasks = append(tasks, t)
 	}
 	rows.Close()
 	if err = rows.Err(); err != nil {
 		return nil, fmt.Errorf("postgres: pick-and-mark: rows: %w", err)
+	}
+
+	// Загружаем зависимости после закрытия rows (pgx: нельзя с открытым курсором).
+	for _, t := range tasks {
+		uid, _ := toUUID(t.ID)
+		t.Dependencies, err = loadDeps(ctx, tx, uid)
+		if err != nil {
+			return nil, fmt.Errorf("postgres: pick-and-mark: deps: %w", err)
+		}
 	}
 
 	now := time.Now().UTC()
