@@ -1,0 +1,6 @@
+{
+  "type": "load-test",
+  "payload": "e30=",
+  "priority": 5,
+  "retry_limit": 0
+}

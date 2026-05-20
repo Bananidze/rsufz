@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 
 	rsufzv1 "github.com/Bananidze/rsufz/gen/go/rsufz/v1"
 	"github.com/Bananidze/rsufz/internal/domain"
@@ -53,6 +54,7 @@ func Serve(ctx context.Context, addr string, svc *Server, log *slog.Logger) erro
 		)),
 	)
 	rsufzv1.RegisterTaskServiceServer(srv, svc)
+	reflection.Register(srv)
 
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {

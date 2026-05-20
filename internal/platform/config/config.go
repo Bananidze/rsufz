@@ -43,14 +43,14 @@ func LoadAPIGateway() APIGateway {
 		GRPCAddr:     envOr("GRPC_ADDR", ":50051"),
 		MetricsAddr:  envOr("METRICS_ADDR", ":9090"),
 		OTLPEndpoint: envOr("OTLP_ENDPOINT", ""),
-		PostgresDSN:  envOr("POSTGRES_DSN", "postgres://rsufz:rsufz@localhost:5432/rsufz?sslmode=disable"),
+		PostgresDSN:  envOr("POSTGRES_DSN", "postgres://rsufz:rsufz@localhost:5433/rsufz?sslmode=disable"),
 		LogLevel:     envOr("LOG_LEVEL", "info"),
 	}
 }
 
 func LoadScheduler() Scheduler {
 	return Scheduler{
-		PostgresDSN:  envOr("POSTGRES_DSN", "postgres://rsufz:rsufz@localhost:5432/rsufz?sslmode=disable"),
+		PostgresDSN:  envOr("POSTGRES_DSN", "postgres://rsufz:rsufz@localhost:5433/rsufz?sslmode=disable"),
 		RedisAddr:    envOr("REDIS_ADDR", "localhost:6379"),
 		MetricsAddr:  envOr("METRICS_ADDR", ":9091"),
 		OTLPEndpoint: envOr("OTLP_ENDPOINT", ""),
@@ -63,7 +63,7 @@ func LoadScheduler() Scheduler {
 
 func LoadWorker() Worker {
 	return Worker{
-		PostgresDSN:  envOr("POSTGRES_DSN", "postgres://rsufz:rsufz@localhost:5432/rsufz?sslmode=disable"),
+		PostgresDSN:  envOr("POSTGRES_DSN", "postgres://rsufz:rsufz@localhost:5433/rsufz?sslmode=disable"),
 		RedisAddr:    envOr("REDIS_ADDR", "localhost:6379"),
 		MetricsAddr:  envOr("METRICS_ADDR", ":9092"),
 		OTLPEndpoint: envOr("OTLP_ENDPOINT", ""),

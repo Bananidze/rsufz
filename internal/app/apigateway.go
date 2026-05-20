@@ -3,10 +3,12 @@ package app
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log/slog"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/sync/errgroup"
 
@@ -16,6 +18,7 @@ import (
 	tracing "github.com/Bananidze/rsufz/internal/adapter/trace/otel"
 	"github.com/Bananidze/rsufz/internal/platform/config"
 	"github.com/Bananidze/rsufz/internal/platform/ids"
+	"github.com/Bananidze/rsufz/internal/platform/migrate"
 	"github.com/Bananidze/rsufz/internal/usecase"
 )
 
@@ -33,7 +36,16 @@ func RunAPIGateway(ctx context.Context, cfg config.APIGateway, log *slog.Logger)
 	reg := prometheus.NewRegistry()
 	metrics := prommetrics.New(reg)
 
-	// Database
+	// Database — migrations first, then connection pool
+	sqlDB, err := sql.Open("pgx", cfg.PostgresDSN)
+	if err != nil {
+		return fmt.Errorf("app/apigateway: sql.Open: %w", err)
+	}
+	if err := migrate.Up(ctx, sqlDB); err != nil {
+		return fmt.Errorf("app/apigateway: migrate: %w", err)
+	}
+	_ = sqlDB.Close()
+
 	pool, err := pgxpool.New(ctx, cfg.PostgresDSN)
 	if err != nil {
 		return fmt.Errorf("app/apigateway: pgxpool: %w", err)
