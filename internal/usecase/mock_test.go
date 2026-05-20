@@ -59,6 +59,23 @@ func (m *mockRepo) CleanupExpired(ctx context.Context, ttl time.Duration) (int64
 	return args.Get(0).(int64), args.Error(1)
 }
 
+// mockBroker implements Broker.
+type mockBroker struct{ mock.Mock }
+
+func (m *mockBroker) Publish(ctx context.Context, stream string, taskID domain.TaskID) error {
+	return m.Called(ctx, stream, taskID).Error(0)
+}
+
+func (m *mockBroker) Subscribe(ctx context.Context, stream, group, consumer string) (<-chan usecase.Delivery, error) {
+	args := m.Called(ctx, stream, group, consumer)
+	ch, _ := args.Get(0).(<-chan usecase.Delivery)
+	return ch, args.Error(1)
+}
+
+func (m *mockBroker) Ack(ctx context.Context, stream, group, msgID string) error {
+	return m.Called(ctx, stream, group, msgID).Error(0)
+}
+
 // mockClock implements Clock.
 type mockClock struct{}
 

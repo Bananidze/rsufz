@@ -1,13 +1,33 @@
 // Бинарник планировщика РСУФЗ.
-// На Этапе 1 — заглушка. Реальная сборка зависимостей — в internal/app/scheduler.go (Этап 6).
+// Поллит PostgreSQL, переводит pending-задачи в running, пушит в Redis Stream.
 package main
 
 import (
-	"fmt"
+	"context"
+	"errors"
+	"log/slog"
+	"os"
 
-	"github.com/Bananidze/rsufz/internal/version"
+	"github.com/Bananidze/rsufz/internal/app"
+	"github.com/Bananidze/rsufz/internal/platform/config"
+	"github.com/Bananidze/rsufz/internal/platform/logger"
+	"github.com/Bananidze/rsufz/internal/platform/shutdown"
 )
 
 func main() {
-	fmt.Printf("rsufz scheduler %s (stub)\n", version.Build())
+	cfg := config.LoadScheduler()
+	log := logger.New(cfg.LogLevel)
+
+	ctx, stop := shutdown.NotifyContext(context.Background())
+	defer stop()
+
+	log.Info("rsufz scheduler starting",
+		slog.String("redis", cfg.RedisAddr),
+		slog.Duration("poll_interval", cfg.PollInterval),
+	)
+
+	if err := app.RunScheduler(ctx, cfg, log); err != nil && !errors.Is(err, context.Canceled) {
+		log.Error("scheduler exited with error", slog.Any("err", err))
+		os.Exit(1)
+	}
 }

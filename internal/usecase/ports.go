@@ -76,6 +76,11 @@ type IDGenerator interface {
 	New() domain.TaskID
 }
 
+// SystemClock реализует Clock с реальным временем.
+type SystemClock struct{}
+
+func (SystemClock) Now() time.Time { return time.Now().UTC() }
+
 // ListFilter — параметры выборки задач.
 type ListFilter struct {
 	Status   domain.Status // пустая строка = все статусы
