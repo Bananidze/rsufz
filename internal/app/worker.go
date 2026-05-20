@@ -6,11 +6,14 @@ import (
 	"log/slog"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/sync/errgroup"
 
 	redisbroker "github.com/Bananidze/rsufz/internal/adapter/broker/redis"
+	prommetrics "github.com/Bananidze/rsufz/internal/adapter/metrics/prom"
 	repopostgres "github.com/Bananidze/rsufz/internal/adapter/repo/postgres"
+	tracing "github.com/Bananidze/rsufz/internal/adapter/trace/otel"
 	"github.com/Bananidze/rsufz/internal/platform/config"
 	"github.com/Bananidze/rsufz/internal/usecase"
 )
@@ -19,6 +22,18 @@ import (
 // registry заполняется в cmd/worker/main.go конкретными хендлерами бизнес-логики.
 // Блокируется до ctx.Done() или первой ошибки.
 func RunWorker(ctx context.Context, cfg config.Worker, registry *usecase.Registry, log *slog.Logger) error {
+	// Tracing
+	shutdownTrace, err := tracing.Setup(ctx, cfg.OTLPEndpoint)
+	if err != nil {
+		return fmt.Errorf("app/worker: otel: %w", err)
+	}
+	defer shutdownTrace(context.Background()) //nolint:errcheck
+
+	// Metrics
+	reg := prometheus.NewRegistry()
+	metrics := prommetrics.New(reg)
+
+	// Database
 	pool, err := pgxpool.New(ctx, cfg.PostgresDSN)
 	if err != nil {
 		return fmt.Errorf("app/worker: pgxpool: %w", err)
@@ -29,6 +44,7 @@ func RunWorker(ctx context.Context, cfg config.Worker, registry *usecase.Registr
 		return fmt.Errorf("app/worker: postgres ping: %w", err)
 	}
 
+	// Redis
 	rdb := redis.NewClient(&redis.Options{Addr: cfg.RedisAddr})
 	defer rdb.Close()
 
@@ -40,9 +56,10 @@ func RunWorker(ctx context.Context, cfg config.Worker, registry *usecase.Registr
 	broker := redisbroker.New(rdb)
 	clock := usecase.SystemClock{}
 
-	execute := usecase.NewExecute(repo, broker, registry, clock, cfg.WorkerID, log)
+	execute := usecase.NewExecute(repo, broker, registry, clock, metrics, cfg.WorkerID, log)
 
 	grp, ctx := errgroup.WithContext(ctx)
 	grp.Go(func() error { return execute.Run(ctx) })
+	grp.Go(func() error { return prommetrics.Serve(ctx, cfg.MetricsAddr, reg) })
 	return grp.Wait()
 }

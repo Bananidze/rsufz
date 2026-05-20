@@ -76,6 +76,27 @@ type IDGenerator interface {
 	New() domain.TaskID
 }
 
+// Metrics — порт наблюдаемости (реализован в adapter/metrics/prom).
+// Передавайте NopMetrics{} если метрики не нужны (тесты, заглушки).
+type Metrics interface {
+	TaskEnqueued(latency time.Duration)
+	TaskCompleted(duration time.Duration)
+	TaskFailed()
+	TaskRetried()
+	TaskDispatched()
+	SetPending(n int)
+}
+
+// NopMetrics — заглушка для тестов и конфигураций без метрик.
+type NopMetrics struct{}
+
+func (NopMetrics) TaskEnqueued(_ time.Duration) {}
+func (NopMetrics) TaskCompleted(_ time.Duration) {}
+func (NopMetrics) TaskFailed()                  {}
+func (NopMetrics) TaskRetried()                 {}
+func (NopMetrics) TaskDispatched()              {}
+func (NopMetrics) SetPending(_ int)             {}
+
 // SystemClock реализует Clock с реальным временем.
 type SystemClock struct{}
 

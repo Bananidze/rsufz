@@ -14,15 +14,15 @@ import (
 )
 
 func newEnqueue(repo *mockRepo, knownTypes ...string) *usecase.EnqueueUseCase {
-	return usecase.NewEnqueue(repo, mockClock{}, mockIDs{"task-1"}, slog.Default(), knownTypes...)
+	return usecase.NewEnqueue(repo, mockClock{}, mockIDs{"task-1"}, usecase.NopMetrics{}, slog.Default(), knownTypes...)
 }
 
 // MT.1.1 — валидная задача регистрируется, возвращается ID.
 func TestEnqueue_ValidTask(t *testing.T) {
 	t.Parallel()
 	repo := new(mockRepo)
-	repo.On("FindByIdempotencyKey", context.Background(), "").Return(nil, domain.ErrNotFound).Maybe()
-	repo.On("Create", context.Background(), matchAnyTask()).Return(nil)
+	repo.On("FindByIdempotencyKey", mock.Anything, "").Return(nil, domain.ErrNotFound).Maybe()
+	repo.On("Create", mock.Anything, matchAnyTask()).Return(nil)
 
 	id, err := newEnqueue(repo).Handle(context.Background(), usecase.EnqueueCmd{
 		Type:    "email",
@@ -62,7 +62,7 @@ func TestEnqueue_InvalidPayload(t *testing.T) {
 func TestEnqueue_PriorityMin(t *testing.T) {
 	t.Parallel()
 	repo := new(mockRepo)
-	repo.On("Create", context.Background(), matchAnyTask()).Return(nil)
+	repo.On("Create", mock.Anything, matchAnyTask()).Return(nil)
 
 	_, err := newEnqueue(repo).Handle(context.Background(), usecase.EnqueueCmd{
 		Type:     "job",
@@ -75,7 +75,7 @@ func TestEnqueue_PriorityMin(t *testing.T) {
 func TestEnqueue_PriorityMax(t *testing.T) {
 	t.Parallel()
 	repo := new(mockRepo)
-	repo.On("Create", context.Background(), matchAnyTask()).Return(nil)
+	repo.On("Create", mock.Anything, matchAnyTask()).Return(nil)
 
 	_, err := newEnqueue(repo).Handle(context.Background(), usecase.EnqueueCmd{
 		Type:     "job",
@@ -99,7 +99,7 @@ func TestEnqueue_IdempotencyHit(t *testing.T) {
 	t.Parallel()
 	existing := &domain.Task{ID: "existing-task"}
 	repo := new(mockRepo)
-	repo.On("FindByIdempotencyKey", context.Background(), "key-123").Return(existing, nil)
+	repo.On("FindByIdempotencyKey", mock.Anything, "key-123").Return(existing, nil)
 
 	id, err := newEnqueue(repo).Handle(context.Background(), usecase.EnqueueCmd{
 		Type:           "job",

@@ -9,6 +9,10 @@ import (
 	"strings"
 	"time"
 
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+
 	"github.com/Bananidze/rsufz/internal/domain"
 )
 
@@ -39,25 +43,32 @@ type EnqueueUseCase struct {
 	repo       TaskRepository
 	clock      Clock
 	ids        IDGenerator
+	metrics    Metrics
 	knownTypes map[string]struct{} // если не пусто — принимаем только эти типы (МТ.1.3)
 	log        *slog.Logger
 }
 
 // NewEnqueue создаёт use case. knownTypes — список допустимых типов задач;
 // передайте nil/empty чтобы принимать любые типы.
-func NewEnqueue(repo TaskRepository, clock Clock, ids IDGenerator, log *slog.Logger, knownTypes ...string) *EnqueueUseCase {
+func NewEnqueue(repo TaskRepository, clock Clock, ids IDGenerator, metrics Metrics, log *slog.Logger, knownTypes ...string) *EnqueueUseCase {
 	kt := make(map[string]struct{}, len(knownTypes))
 	for _, t := range knownTypes {
 		kt[t] = struct{}{}
 	}
-	return &EnqueueUseCase{repo: repo, clock: clock, ids: ids, knownTypes: kt, log: log}
+	return &EnqueueUseCase{repo: repo, clock: clock, ids: ids, metrics: metrics, knownTypes: kt, log: log}
 }
 
 // Handle обрабатывает запрос постановки задачи.
 // Алгоритм из ПЗ §«Алгоритм приёма и регистрации задачи» (рис. 2.1).
 func (u *EnqueueUseCase) Handle(ctx context.Context, cmd EnqueueCmd) (domain.TaskID, error) {
+	start := u.clock.Now()
+	ctx, span := otel.Tracer("rsufz").Start(ctx, "enqueue")
+	defer span.End()
+
 	// 1. Валидация полей
 	if err := cmd.Validate(); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return "", err
 	}
 
@@ -104,13 +115,25 @@ func (u *EnqueueUseCase) Handle(ctx context.Context, cmd EnqueueCmd) (domain.Tas
 
 	// 5. Сохранение в БД со статусом pending
 	if err := u.repo.Create(ctx, task); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		return "", fmt.Errorf("enqueue: create: %w", err)
 	}
+
+	latency := u.clock.Now().Sub(start)
+	span.SetAttributes(
+		attribute.String("task.id", string(task.ID)),
+		attribute.String("task.type", task.Type),
+		attribute.Int("task.priority", int(task.Priority)),
+	)
+	span.SetStatus(codes.Ok, "")
+	u.metrics.TaskEnqueued(latency)
 
 	u.log.InfoContext(ctx, "task enqueued",
 		slog.String("task_id", string(task.ID)),
 		slog.String("type", task.Type),
 		slog.Int("priority", int(task.Priority)),
+		slog.Duration("latency", latency),
 	)
 	return task.ID, nil
 }

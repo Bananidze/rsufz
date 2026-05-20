@@ -22,7 +22,7 @@ const workerID = "test-worker"
 
 // newExecute собирает ExecuteUseCase с подменёнными зависимостями.
 func newExecute(repo *mockRepo, broker *mockBroker, registry *usecase.Registry) *usecase.ExecuteUseCase {
-	return usecase.NewExecute(repo, broker, registry, mockClock{}, workerID, slog.Default())
+	return usecase.NewExecute(repo, broker, registry, mockClock{}, usecase.NopMetrics{}, workerID, slog.Default())
 }
 
 // setupSubscribe настраивает mockBroker.Subscribe на возврат канала с одним delivery.

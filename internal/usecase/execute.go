@@ -7,6 +7,10 @@ import (
 	"log/slog"
 	"time"
 
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+
 	"github.com/Bananidze/rsufz/internal/domain"
 )
 
@@ -23,6 +27,7 @@ type ExecuteUseCase struct {
 	broker   Broker
 	registry *Registry
 	clock    Clock
+	metrics  Metrics
 	workerID string
 	log      *slog.Logger
 }
@@ -33,6 +38,7 @@ func NewExecute(
 	broker Broker,
 	registry *Registry,
 	clock Clock,
+	metrics Metrics,
 	workerID string,
 	log *slog.Logger,
 ) *ExecuteUseCase {
@@ -41,6 +47,7 @@ func NewExecute(
 		broker:   broker,
 		registry: registry,
 		clock:    clock,
+		metrics:  metrics,
 		workerID: workerID,
 		log:      log,
 	}
@@ -67,13 +74,24 @@ func (u *ExecuteUseCase) Run(ctx context.Context) error {
 }
 
 func (u *ExecuteUseCase) process(ctx context.Context, d Delivery) {
+	ctx, span := otel.Tracer("rsufz").Start(ctx, "execute")
+	defer span.End()
+
 	log := u.log.With(slog.String("task_id", string(d.TaskID)), slog.String("msg_id", d.ID))
+	start := u.clock.Now()
 
 	task, err := u.repo.GetByID(ctx, d.TaskID)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
 		log.ErrorContext(ctx, "execute: get task", slog.Any("err", err))
 		return
 	}
+	span.SetAttributes(
+		attribute.String("task.id", string(task.ID)),
+		attribute.String("task.type", task.Type),
+		attribute.Int("task.priority", int(task.Priority)),
+	)
 
 	// Идемпотентность: задача уже завершена (МТ.6.3)
 	if task.Status == domain.StatusCompleted || task.Status == domain.StatusCancelled {
@@ -120,15 +138,21 @@ func (u *ExecuteUseCase) process(ctx context.Context, d Delivery) {
 done:
 
 	if res.err != nil {
+		span.RecordError(res.err)
+		span.SetStatus(codes.Error, res.err.Error())
 		task.IncrementAttempt()
 		if task.CanRetry() && !errors.Is(res.err, context.Canceled) {
+			u.metrics.TaskRetried()
 			u.markRetry(ctx, task, res.err, d.ID)
 		} else {
+			u.metrics.TaskFailed()
 			u.markFailed(ctx, task, res.err.Error(), d.ID)
 		}
 		return
 	}
 
+	span.SetStatus(codes.Ok, "")
+	u.metrics.TaskCompleted(u.clock.Now().Sub(start))
 	u.markCompleted(ctx, task, res.result, d.ID)
 }
 

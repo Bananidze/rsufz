@@ -16,7 +16,7 @@ import (
 )
 
 func newScheduler(repo *mockRepo, broker *mockBroker) *usecase.ScheduleUseCase {
-	return usecase.NewSchedule(repo, broker, slog.Default(),
+	return usecase.NewSchedule(repo, broker, usecase.NopMetrics{}, slog.Default(),
 		usecase.WithPollInterval(10*time.Millisecond),
 		usecase.WithBatchSize(10),
 	)

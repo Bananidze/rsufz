@@ -17,16 +17,18 @@ const (
 type ScheduleUseCase struct {
 	repo         TaskRepository
 	broker       Broker
+	metrics      Metrics
 	pollInterval time.Duration
 	batchSize    int
 	log          *slog.Logger
 }
 
 // NewSchedule создаёт планировщик с опциональными настройками.
-func NewSchedule(repo TaskRepository, broker Broker, log *slog.Logger, opts ...ScheduleOption) *ScheduleUseCase {
+func NewSchedule(repo TaskRepository, broker Broker, metrics Metrics, log *slog.Logger, opts ...ScheduleOption) *ScheduleUseCase {
 	s := &ScheduleUseCase{
 		repo:         repo,
 		broker:       broker,
+		metrics:      metrics,
 		pollInterval: defaultPollInterval,
 		batchSize:    defaultBatchSize,
 		log:          log,
@@ -81,6 +83,7 @@ func (s *ScheduleUseCase) tick(ctx context.Context) error {
 			)
 			continue
 		}
+		s.metrics.TaskDispatched()
 		s.log.DebugContext(ctx, "scheduler: dispatched",
 			slog.String("task_id", string(t.ID)),
 			slog.String("type", t.Type),

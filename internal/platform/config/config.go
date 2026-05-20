@@ -9,15 +9,19 @@ import (
 
 // APIGateway — конфиг бинарника API-шлюза.
 type APIGateway struct {
-	GRPCAddr    string // GRPC_ADDR (default :50051)
-	PostgresDSN string // POSTGRES_DSN
-	LogLevel    string // LOG_LEVEL (default info)
+	GRPCAddr     string // GRPC_ADDR (default :50051)
+	MetricsAddr  string // METRICS_ADDR (default :9090)
+	OTLPEndpoint string // OTLP_ENDPOINT ("" → stdout, "noop" → отключить)
+	PostgresDSN  string // POSTGRES_DSN
+	LogLevel     string // LOG_LEVEL (default info)
 }
 
 // Scheduler — конфиг бинарника планировщика.
 type Scheduler struct {
 	PostgresDSN  string        // POSTGRES_DSN
 	RedisAddr    string        // REDIS_ADDR (default localhost:6379)
+	MetricsAddr  string        // METRICS_ADDR (default :9091)
+	OTLPEndpoint string        // OTLP_ENDPOINT
 	PollInterval time.Duration // POLL_INTERVAL (default 100ms)
 	BatchSize    int           // BATCH_SIZE (default 50)
 	HBTimeout    time.Duration // HEARTBEAT_TIMEOUT (default 30s)
@@ -26,17 +30,21 @@ type Scheduler struct {
 
 // Worker — конфиг бинарника воркера.
 type Worker struct {
-	PostgresDSN string // POSTGRES_DSN
-	RedisAddr   string // REDIS_ADDR (default localhost:6379)
-	WorkerID    string // WORKER_ID (default hostname)
-	LogLevel    string // LOG_LEVEL (default info)
+	PostgresDSN  string // POSTGRES_DSN
+	RedisAddr    string // REDIS_ADDR (default localhost:6379)
+	MetricsAddr  string // METRICS_ADDR (default :9092)
+	OTLPEndpoint string // OTLP_ENDPOINT
+	WorkerID     string // WORKER_ID (default hostname)
+	LogLevel     string // LOG_LEVEL (default info)
 }
 
 func LoadAPIGateway() APIGateway {
 	return APIGateway{
-		GRPCAddr:    envOr("GRPC_ADDR", ":50051"),
-		PostgresDSN: envOr("POSTGRES_DSN", "postgres://rsufz:rsufz@localhost:5432/rsufz?sslmode=disable"),
-		LogLevel:    envOr("LOG_LEVEL", "info"),
+		GRPCAddr:     envOr("GRPC_ADDR", ":50051"),
+		MetricsAddr:  envOr("METRICS_ADDR", ":9090"),
+		OTLPEndpoint: envOr("OTLP_ENDPOINT", ""),
+		PostgresDSN:  envOr("POSTGRES_DSN", "postgres://rsufz:rsufz@localhost:5432/rsufz?sslmode=disable"),
+		LogLevel:     envOr("LOG_LEVEL", "info"),
 	}
 }
 
@@ -44,6 +52,8 @@ func LoadScheduler() Scheduler {
 	return Scheduler{
 		PostgresDSN:  envOr("POSTGRES_DSN", "postgres://rsufz:rsufz@localhost:5432/rsufz?sslmode=disable"),
 		RedisAddr:    envOr("REDIS_ADDR", "localhost:6379"),
+		MetricsAddr:  envOr("METRICS_ADDR", ":9091"),
+		OTLPEndpoint: envOr("OTLP_ENDPOINT", ""),
 		PollInterval: envDuration("POLL_INTERVAL", 100*time.Millisecond),
 		BatchSize:    envInt("BATCH_SIZE", 50),
 		HBTimeout:    envDuration("HEARTBEAT_TIMEOUT", 30*time.Second),
@@ -53,10 +63,12 @@ func LoadScheduler() Scheduler {
 
 func LoadWorker() Worker {
 	return Worker{
-		PostgresDSN: envOr("POSTGRES_DSN", "postgres://rsufz:rsufz@localhost:5432/rsufz?sslmode=disable"),
-		RedisAddr:   envOr("REDIS_ADDR", "localhost:6379"),
-		WorkerID:    envOr("WORKER_ID", hostname()),
-		LogLevel:    envOr("LOG_LEVEL", "info"),
+		PostgresDSN:  envOr("POSTGRES_DSN", "postgres://rsufz:rsufz@localhost:5432/rsufz?sslmode=disable"),
+		RedisAddr:    envOr("REDIS_ADDR", "localhost:6379"),
+		MetricsAddr:  envOr("METRICS_ADDR", ":9092"),
+		OTLPEndpoint: envOr("OTLP_ENDPOINT", ""),
+		WorkerID:     envOr("WORKER_ID", hostname()),
+		LogLevel:     envOr("LOG_LEVEL", "info"),
 	}
 }
 
