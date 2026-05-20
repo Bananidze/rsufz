@@ -7,19 +7,18 @@ import (
 )
 
 const (
-	defaultPollInterval   = 100 * time.Millisecond
-	defaultBatchSize      = 50
-	defaultHeartbeatTimeout = 30 * time.Second
-	taskStream            = "rsufz:tasks"
+	defaultPollInterval = 100 * time.Millisecond
+	defaultBatchSize    = 50
+	taskStream          = "rsufz:tasks"
 )
 
 // ScheduleUseCase — планировщик: поллит БД, переводит задачи в running, пушит в Redis.
+// Мониторинг зависших задач (heartbeat) вынесен в HeartbeatUseCase.
 type ScheduleUseCase struct {
 	repo         TaskRepository
 	broker       Broker
 	pollInterval time.Duration
 	batchSize    int
-	hbTimeout    time.Duration
 	log          *slog.Logger
 }
 
@@ -30,7 +29,6 @@ func NewSchedule(repo TaskRepository, broker Broker, log *slog.Logger, opts ...S
 		broker:       broker,
 		pollInterval: defaultPollInterval,
 		batchSize:    defaultBatchSize,
-		hbTimeout:    defaultHeartbeatTimeout,
 		log:          log,
 	}
 	for _, o := range opts {
@@ -50,32 +48,17 @@ func WithBatchSize(n int) ScheduleOption {
 	return func(s *ScheduleUseCase) { s.batchSize = n }
 }
 
-func WithHeartbeatTimeout(d time.Duration) ScheduleOption {
-	return func(s *ScheduleUseCase) { s.hbTimeout = d }
-}
-
 // Loop запускает основной цикл планировщика. Блокируется до ctx.Done().
 // Запускать через errgroup или отдельную горутину.
+// Мониторинг зависших задач — отдельная горутина с HeartbeatUseCase.Run.
 func (s *ScheduleUseCase) Loop(ctx context.Context) error {
 	ticker := time.NewTicker(s.pollInterval)
 	defer ticker.Stop()
-
-	hbTicker := time.NewTicker(s.hbTimeout / 2)
-	defer hbTicker.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
-
-		case <-hbTicker.C:
-			n, err := s.repo.ResetStuckRunning(ctx, s.hbTimeout)
-			if err != nil {
-				s.log.ErrorContext(ctx, "scheduler: reset stuck running", slog.Any("err", err))
-			} else if n > 0 {
-				s.log.InfoContext(ctx, "scheduler: reset stuck tasks", slog.Int64("count", n))
-			}
-
 		case <-ticker.C:
 			if err := s.tick(ctx); err != nil {
 				s.log.ErrorContext(ctx, "scheduler: tick error", slog.Any("err", err))

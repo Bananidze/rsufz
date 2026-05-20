@@ -41,10 +41,11 @@ func RunScheduler(ctx context.Context, cfg config.Scheduler, log *slog.Logger) e
 	scheduler := usecase.NewSchedule(repo, broker, log,
 		usecase.WithPollInterval(cfg.PollInterval),
 		usecase.WithBatchSize(cfg.BatchSize),
-		usecase.WithHeartbeatTimeout(cfg.HBTimeout),
 	)
+	heartbeat := usecase.NewHeartbeat(repo, cfg.HBTimeout, cfg.HBTimeout/2, log)
 
 	grp, ctx := errgroup.WithContext(ctx)
 	grp.Go(func() error { return scheduler.Loop(ctx) })
+	grp.Go(func() error { return heartbeat.Run(ctx) })
 	return grp.Wait()
 }
